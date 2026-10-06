@@ -15,8 +15,9 @@ st.set_page_config(
 )
 
 st.title("🌡️ 서울 연평균 기온 선형회귀 예측")
+
 st.write(
-    "과거의 연평균 기온으로 회귀모델을 학습하고 "
+    "과거의 연평균 기온으로 선형회귀 모델을 만들고 "
     "최근 20년의 기온을 얼마나 잘 예측하는지 비교합니다."
 )
 
@@ -46,7 +47,9 @@ def load_data():
         errors="coerce"
     )
 
-    df = df.dropna(subset=["날짜", "평균기온"])
+    df = df.dropna(
+        subset=["날짜", "평균기온"]
+    )
 
     # 2025년까지의 데이터만 사용
     df = df[df["날짜"].dt.year <= 2025].copy()
@@ -72,24 +75,32 @@ yearly = (
 )
 
 # 관측일수가 300일 이상인 해만 사용
-yearly = yearly[yearly["관측일수"] >= 300].copy()
+yearly = yearly[
+    yearly["관측일수"] >= 300
+].copy()
 
-yearly = yearly.sort_values("연도").reset_index(drop=True)
+yearly = yearly.sort_values(
+    "연도"
+).reset_index(drop=True)
 
 
 # -----------------------------------
 # 학습 / 테스트 데이터
 # -----------------------------------
+
+# 최근 50년 학습 데이터
 train_50 = yearly[
     (yearly["연도"] >= 1956) &
     (yearly["연도"] <= 2005)
 ].copy()
 
+# 최근 100년 학습 데이터
 train_100 = yearly[
     (yearly["연도"] >= 1906) &
     (yearly["연도"] <= 2005)
 ].copy()
 
+# 공통 테스트 데이터
 test = yearly[
     (yearly["연도"] >= 2006) &
     (yearly["연도"] <= 2025)
@@ -97,19 +108,23 @@ test = yearly[
 
 
 # -----------------------------------
-# 회귀모델 함수
+# 회귀모델 만들기
 # -----------------------------------
 def make_model(train_data):
+
     X_train = train_data[["연도"]]
     y_train = train_data["연평균기온"]
 
     model = LinearRegression()
-    model.fit(X_train, y_train)
+
+    model.fit(
+        X_train,
+        y_train
+    )
 
     return model
 
 
-# 모델 학습
 model_50 = make_model(train_50)
 model_100 = make_model(train_100)
 
@@ -125,27 +140,100 @@ pred_100 = model_100.predict(X_test)
 
 
 # -----------------------------------
-# 성능 평가
+# 예측 성능 평가
 # -----------------------------------
-mae_50 = mean_absolute_error(y_test, pred_50)
-mse_50 = mean_squared_error(y_test, pred_50)
-r2_50 = r2_score(y_test, pred_50)
 
-mae_100 = mean_absolute_error(y_test, pred_100)
-mse_100 = mean_squared_error(y_test, pred_100)
-r2_100 = r2_score(y_test, pred_100)
+mae_50 = mean_absolute_error(
+    y_test,
+    pred_50
+)
+
+mse_50 = mean_squared_error(
+    y_test,
+    pred_50
+)
+
+r2_50 = r2_score(
+    y_test,
+    pred_50
+)
+
+
+mae_100 = mean_absolute_error(
+    y_test,
+    pred_100
+)
+
+mse_100 = mean_squared_error(
+    y_test,
+    pred_100
+)
+
+r2_100 = r2_score(
+    y_test,
+    pred_100
+)
 
 
 # -----------------------------------
-# 회귀선 기울기
+# 50년 / 100년 회귀선 기울기
 # -----------------------------------
+
 slope_50 = model_50.coef_[0]
 slope_100 = model_100.coef_[0]
 
+# 1년당 변화량 → 100년당 변화량
+rise_100_50 = slope_50 * 100
+rise_100_100 = slope_100 * 100
+
 
 # -----------------------------------
-# 데이터 개수 확인
+# 전체 기간 회귀모델
 # -----------------------------------
+
+X_all = yearly[["연도"]]
+y_all = yearly["연평균기온"]
+
+model_all = LinearRegression()
+
+model_all.fit(
+    X_all,
+    y_all
+)
+
+slope_all = model_all.coef_[0]
+
+rise_100_all = slope_all * 100
+
+
+# -----------------------------------
+# 최근 20년 회귀모델
+# -----------------------------------
+
+recent_20 = yearly[
+    (yearly["연도"] >= 2006) &
+    (yearly["연도"] <= 2025)
+].copy()
+
+X_recent = recent_20[["연도"]]
+y_recent = recent_20["연평균기온"]
+
+model_recent = LinearRegression()
+
+model_recent.fit(
+    X_recent,
+    y_recent
+)
+
+slope_recent = model_recent.coef_[0]
+
+rise_100_recent = slope_recent * 100
+
+
+# -----------------------------------
+# 학습 / 테스트 데이터 개수
+# -----------------------------------
+
 st.subheader("📊 학습 데이터와 테스트 데이터")
 
 col1, col2, col3 = st.columns(3)
@@ -164,52 +252,79 @@ with col2:
 
 with col3:
     st.metric(
-        "공통 테스트 데이터",
+        "공통 테스트",
         f"{len(test)}년"
     )
 
-
 st.write(
-    f"**학습 데이터:** 1956~2005년 / 1906~2005년"
+    "50년 모델: 1956~2005년을 학습에 사용"
 )
 
 st.write(
-    f"**테스트 데이터:** 2006~2025년"
+    "100년 모델: 1906~2005년을 학습에 사용"
+)
+
+st.write(
+    "두 모델 모두 2006~2025년을 테스트 데이터로 사용"
 )
 
 
 # -----------------------------------
-# 회귀선 기울기 비교
+# 100년에 몇 도 오르는가
 # -----------------------------------
-st.subheader("📈 회귀선 기울기 비교")
 
-slope_df = pd.DataFrame({
-    "모델": ["최근 50년", "최근 100년"],
-    "기울기 (℃/년)": [slope_50, slope_100]
-})
+st.subheader("🌡️ 100년에 몇 ℃ 오르는가")
 
-st.dataframe(
-    slope_df.style.format({
-        "기울기 (℃/년)": "{:.5f}"
-    }),
-    use_container_width=True
-)
+col1, col2 = st.columns(2)
+
+with col1:
+    st.metric(
+        "전체 기간",
+        f"{rise_100_all:.2f}℃",
+        "100년에"
+    )
+
+with col2:
+    st.metric(
+        "최근 20년",
+        f"{rise_100_recent:.2f}℃",
+        "100년에"
+    )
 
 st.write(
-    f"최근 50년 모델의 기울기: **{slope_50:.5f} ℃/년**"
-)
-
-st.write(
-    f"최근 100년 모델의 기울기: **{slope_100:.5f} ℃/년**"
+    "회귀선의 기울기를 100년 기준으로 바꾸어 비교한 값입니다."
 )
 
 
 # -----------------------------------
-# 실제 데이터 + 두 회귀선 그래프
+# 50년 / 100년 학습 회귀선 기울기
 # -----------------------------------
-st.subheader("📉 실제 기온과 두 회귀선 비교")
 
-# 그래프를 그릴 전체 연도
+st.subheader("📈 학습 기간에 따른 회귀선 비교")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.metric(
+        "최근 50년으로 학습",
+        f"{rise_100_50:.2f}℃",
+        "100년에"
+    )
+
+with col2:
+    st.metric(
+        "최근 100년으로 학습",
+        f"{rise_100_100:.2f}℃",
+        "100년에"
+    )
+
+
+# -----------------------------------
+# 실제 기온 + 회귀선 그래프
+# -----------------------------------
+
+st.subheader("📉 실제 기온과 회귀선 비교")
+
 graph_years = pd.DataFrame({
     "연도": range(
         int(yearly["연도"].min()),
@@ -217,8 +332,15 @@ graph_years = pd.DataFrame({
     )
 })
 
-graph_50 = model_50.predict(graph_years[["연도"]])
-graph_100 = model_100.predict(graph_years[["연도"]])
+
+graph_50 = model_50.predict(
+    graph_years[["연도"]]
+)
+
+graph_100 = model_100.predict(
+    graph_years[["연도"]]
+)
+
 
 fig = go.Figure()
 
@@ -294,6 +416,7 @@ fig.update_layout(
     )
 )
 
+
 st.plotly_chart(
     fig,
     use_container_width=True
@@ -301,8 +424,9 @@ st.plotly_chart(
 
 
 # -----------------------------------
-# 예측 성능 비교
+# 최근 20년 예측 성능 비교
 # -----------------------------------
+
 st.subheader("🎯 최근 20년 예측 성능 비교")
 
 result_df = pd.DataFrame({
@@ -324,6 +448,7 @@ result_df = pd.DataFrame({
     ]
 })
 
+
 st.dataframe(
     result_df.style.format({
         "MAE (℃)": "{:.3f}",
@@ -335,24 +460,42 @@ st.dataframe(
 
 
 # -----------------------------------
-# 성능 해석
+# 성능 비교
 # -----------------------------------
-st.subheader("🔎 결과 비교")
+
+st.subheader("🔎 두 모델의 예측 성능 비교")
 
 if mae_50 < mae_100:
-    mae_result = "최근 50년 모델의 평균적인 예측 오차가 더 작았습니다."
+    mae_result = (
+        "최근 50년 모델의 MAE가 더 작아 "
+        "평균적인 예측 오차가 더 작았습니다."
+    )
 else:
-    mae_result = "최근 100년 모델의 평균적인 예측 오차가 더 작았습니다."
+    mae_result = (
+        "최근 100년 모델의 MAE가 더 작아 "
+        "평균적인 예측 오차가 더 작았습니다."
+    )
+
 
 if mse_50 < mse_100:
-    mse_result = "최근 50년 모델의 큰 오차도 상대적으로 적었습니다."
+    mse_result = (
+        "최근 50년 모델의 MSE가 더 작았습니다."
+    )
 else:
-    mse_result = "최근 100년 모델의 큰 오차도 상대적으로 적었습니다."
+    mse_result = (
+        "최근 100년 모델의 MSE가 더 작았습니다."
+    )
+
 
 if r2_50 > r2_100:
-    r2_result = "최근 50년 모델의 R²가 더 높아 테스트 데이터의 변동을 더 잘 설명했습니다."
+    r2_result = (
+        "최근 50년 모델의 R²가 더 높았습니다."
+    )
 else:
-    r2_result = "최근 100년 모델의 R²가 더 높아 테스트 데이터의 변동을 더 잘 설명했습니다."
+    r2_result = (
+        "최근 100년 모델의 R²가 더 높았습니다."
+    )
+
 
 st.write(f"• {mae_result}")
 st.write(f"• {mse_result}")
@@ -360,16 +503,20 @@ st.write(f"• {r2_result}")
 
 
 # -----------------------------------
-# 테스트 데이터의 실제값과 예측값
+# 최근 20년 실제값과 예측값
 # -----------------------------------
+
 st.subheader("📋 최근 20년 실제 기온과 예측값")
 
 comparison = test[
     ["연도", "연평균기온"]
 ].copy()
 
+
 comparison["50년 모델 예측"] = pred_50
+
 comparison["100년 모델 예측"] = pred_100
+
 
 st.dataframe(
     comparison.style.format({
@@ -379,3 +526,4 @@ st.dataframe(
     }),
     use_container_width=True
 )
+
